@@ -89,3 +89,64 @@ body {
 .status[data-state="saved"] {
   color: var(--color-primary);
 }
+
+/* Sits above the canvas, so the scene cannot be edited while it is being saved. */
+.overlay {
+  position: fixed;
+  z-index: 2;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  background: rgb(17 17 17 / 55%);
+  cursor: progress;
+  backdrop-filter: blur(2px);
+  animation: overlay-in 120ms ease-out;
+}
+
+.overlay-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 22px;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
+  color: white;
+  background: rgb(0 0 0 / 78%);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.overlay[data-state="saved"] .overlay-card {
+  color: #b8f5c8;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay {
+    animation: none;
+  }
+
+  .spinner {
+    animation-duration: 2s;
+  }
+}

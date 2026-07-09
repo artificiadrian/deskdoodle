@@ -20,6 +20,8 @@ const App = (): ReactElement => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(getSystemTheme);
   const wallpaperRef = useRef<HTMLImageElement | null>(null);
+  // Read from event handlers that must not re-register whenever `status` changes.
+  const busyRef = useRef(false);
 
   const token = useMemo(readToken, []);
 
@@ -33,29 +35,45 @@ const App = (): ReactElement => {
     const controller = new AbortController();
     const darkMode = window.matchMedia("(prefers-color-scheme: dark)");
 
+    const beginSave = async (): Promise<void> => {
+      if (!api || !workspace || busyRef.current) {
+        return;
+      }
+
+      busyRef.current = true;
+      setStatus("saving");
+      setSaveError(null);
+
+      // Exporting the canvas blocks the main thread. Without waiting for a frame, the
+      // overlay would only appear once the work it announces has already finished.
+      await nextPaint();
+
+      const result = await saveWallpaper(api, workspace, token);
+      if (result.ok) {
+        setStatus("saved");
+        window.close();
+        return;
+      }
+
+      busyRef.current = false;
+      setSaveError(result.message);
+      setStatus("error");
+    };
+
     const onKeyDown = (event: KeyboardEvent): void => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (api && workspace) {
-          void saveWallpaper(api, workspace, token).then((result) => {
-            if (result.ok) {
-              setStatus("saved");
-              window.close();
-              return;
-            }
-            setSaveError(result.message);
-            setStatus("error");
-          });
-          setStatus("saving");
-          setSaveError(null);
-        }
+        void beginSave();
         return;
       }
 
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
+        if (busyRef.current) {
+          return;
+        }
         void closeSession(token).finally(() => window.close());
       }
     };
@@ -119,9 +137,27 @@ const App = (): ReactElement => {
           </Footer>
         </Excalidraw>
       </div>
+
+      {isBusy(status) && (
+        <div className="overlay" data-state={status} role="status" aria-live="polite">
+          <div className="overlay-card">
+            {status === "saving" && <span className="spinner" aria-hidden="true" />}
+            <span>{statusLabel(status)}</span>
+          </div>
+        </div>
+      )}
     </main>
   );
 };
+
+/** While saving, and after it succeeds, the scene is no longer editable. */
+const isBusy = (status: SaveStatus): boolean => status === "saving" || status === "saved";
+
+/** Resolves after the browser has painted, so blocking work cannot pre-empt the overlay. */
+const nextPaint = (): Promise<void> =>
+  new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
 
 const saveWallpaper = async (
   api: ExcalidrawImperativeAPI,
@@ -177,7 +213,7 @@ const statusLabel = (status: SaveStatus): string => {
     case "idle":
       return "Ctrl+S to save. Esc to close.";
     case "saving":
-      return "Applying doodle...";
+      return "Applying doodles...";
     case "saved":
       return "Wallpaper updated";
     case "error":
