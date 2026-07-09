@@ -1,36 +1,49 @@
-import type { EditorBootstrap, SaveRequest, SaveResponse } from "../shared/types.js";
+import type {
+  ApplyWorkspaceRequest,
+  ApplyWorkspaceResponse,
+  EditorWorkspace,
+} from "../shared/types.js";
+import { apiRoutes } from "../shared/api.js";
 
-export function readToken(): string {
+export const readToken = (): string => {
   const token = new URLSearchParams(window.location.search).get("token");
   if (!token) {
     throw new Error("Missing DeskDoodle session token.");
   }
   return token;
-}
+};
 
-export async function fetchBootstrap(token: string): Promise<EditorBootstrap> {
-  const response = await fetch(`/api/bootstrap?token=${encodeURIComponent(token)}`);
+export const fetchEditorWorkspace = async (token: string): Promise<EditorWorkspace> => {
+  const response = await fetch(withToken(apiRoutes.workspace, token));
   if (!response.ok) {
-    throw new Error(`Bootstrap failed: ${response.status}`);
+    throw new Error(`Workspace load failed: ${response.status}`);
   }
-  return response.json() as Promise<EditorBootstrap>;
-}
+  return response.json() as Promise<EditorWorkspace>;
+};
 
-export async function saveWallpaper(
+export const applyWorkspace = async (
   token: string,
-  request: SaveRequest,
-): Promise<SaveResponse> {
-  const response = await fetch(`/api/save?token=${encodeURIComponent(token)}`, {
+  request: ApplyWorkspaceRequest,
+): Promise<ApplyWorkspaceResponse> => {
+  const response = await fetch(withToken(apiRoutes.applyWorkspace, token), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   });
   if (!response.ok) {
-    throw new Error(`Save failed: ${response.status}`);
+    throw new Error(`Apply failed: ${response.status}`);
   }
-  return response.json() as Promise<SaveResponse>;
-}
+  return response.json() as Promise<ApplyWorkspaceResponse>;
+};
 
-export async function discardSession(token: string): Promise<void> {
-  await fetch(`/api/discard?token=${encodeURIComponent(token)}`, { method: "POST" });
-}
+export const closeSession = async (token: string): Promise<void> => {
+  await fetch(withToken(apiRoutes.session, token), { method: "DELETE" });
+};
+
+export const sessionCloseUrl = (token: string): string => {
+  return withToken(apiRoutes.session, token);
+};
+
+const withToken = (path: string, token: string): string => {
+  return `${path}?token=${encodeURIComponent(token)}`;
+};

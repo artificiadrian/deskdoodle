@@ -1,13 +1,14 @@
 import { writeFile } from "node:fs/promises";
-import type { MonitorGeometry } from "../shared/types.js";
+import { pngDataUrlPrefix } from "../shared/data-url.js";
+import type { MonitorGeometry, PngDataUrl } from "../shared/types.js";
 import { runCommand } from "./commands.js";
 import { ensureParentDir } from "./files.js";
 
-export async function renderBaseWallpaper(
+export const renderBaseWallpaper = async (
   sourcePath: string,
   outputPath: string,
   monitor: MonitorGeometry,
-): Promise<void> {
+): Promise<void> => {
   await ensureParentDir(outputPath);
   await runCommand("magick", [
     sourcePath,
@@ -20,25 +21,21 @@ export async function renderBaseWallpaper(
     `${monitor.width}x${monitor.height}`,
     outputPath,
   ]);
-}
+};
 
-export async function writeLayerPngFromDataUrl(
-  dataUrl: string,
+export const writeLayerPngFromDataUrl = async (
+  dataUrl: PngDataUrl,
   outputPath: string,
-): Promise<void> {
-  const match = dataUrl.match(/^data:image\/png;base64,(.+)$/);
-  if (!match?.[1]) {
-    throw new Error("Editor did not send a PNG data URL.");
-  }
+): Promise<void> => {
   await ensureParentDir(outputPath);
-  await writeFile(outputPath, Buffer.from(match[1], "base64"));
-}
+  await writeFile(outputPath, Buffer.from(dataUrl.slice(pngDataUrlPrefix.length), "base64"));
+};
 
-export async function compositeWallpaper(
+export const compositeWallpaper = async (
   basePath: string,
   layerPath: string,
   outputPath: string,
-): Promise<void> {
+): Promise<void> => {
   await ensureParentDir(outputPath);
   await runCommand("magick", [
     basePath,
@@ -48,4 +45,4 @@ export async function compositeWallpaper(
     "-composite",
     outputPath,
   ]);
-}
+};

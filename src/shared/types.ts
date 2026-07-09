@@ -1,3 +1,11 @@
+import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";
+
+declare const pngDataUrlBrand: unique symbol;
+
+export type PngDataUrl = string & {
+  readonly [pngDataUrlBrand]: "PngDataUrl";
+};
+
 export type WallpaperBackend = "gnome";
 
 export type MonitorGeometry = {
@@ -33,19 +41,18 @@ export type DeskDoodleState = {
 
 export type ExcalidrawSceneFile = ImportedDataState;
 
-export type EditorBootstrap = {
-  readonly token: string;
-  readonly baseUrl: string;
+export type EditorWorkspace = {
+  readonly baseImageUrl: string;
   readonly monitor: MonitorGeometry;
   readonly scene: ExcalidrawSceneFile | null;
 };
 
-export type SaveRequest = {
+export type ApplyWorkspaceRequest = {
   readonly scene: ExcalidrawSceneFile;
-  readonly layerPngDataUrl: string;
+  readonly layerPngDataUrl: PngDataUrl;
 };
 
-export type SaveResponse = {
+export type ApplyWorkspaceResponse = {
   readonly ok: true;
   readonly renderedPath: string;
 };
@@ -54,4 +61,3 @@ export type ErrorResponse = {
   readonly ok: false;
   readonly error: string;
 };
-import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";

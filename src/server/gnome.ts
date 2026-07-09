@@ -8,7 +8,7 @@ export type GnomeWallpaperSettings = {
   readonly pictureOptions: string;
 };
 
-export async function readGnomeWallpaperSettings(): Promise<GnomeWallpaperSettings> {
+export const readGnomeWallpaperSettings = async (): Promise<GnomeWallpaperSettings> => {
   const [pictureUri, pictureUriDark, pictureOptions] = await Promise.all([
     gsettingsGet("org.gnome.desktop.background", "picture-uri"),
     gsettingsGet("org.gnome.desktop.background", "picture-uri-dark"),
@@ -16,34 +16,34 @@ export async function readGnomeWallpaperSettings(): Promise<GnomeWallpaperSettin
   ]);
 
   return { pictureUri, pictureUriDark, pictureOptions };
-}
+};
 
-export async function applyGnomeWallpaper(path: string): Promise<void> {
+export const applyGnomeWallpaper = async (path: string): Promise<void> => {
   const uri = pathToFileURL(path).href;
   await Promise.all([
     gsettingsSet("org.gnome.desktop.background", "picture-uri", uri),
     gsettingsSet("org.gnome.desktop.background", "picture-uri-dark", uri),
   ]);
-}
+};
 
-export async function restoreGnomeWallpaper(
+export const restoreGnomeWallpaper = async (
   pictureUri: string,
   pictureUriDark: string,
-): Promise<void> {
+): Promise<void> => {
   await Promise.all([
     gsettingsSet("org.gnome.desktop.background", "picture-uri", pictureUri),
     gsettingsSet("org.gnome.desktop.background", "picture-uri-dark", pictureUriDark),
   ]);
-}
+};
 
-export function wallpaperUriToPath(uri: string): string {
+export const wallpaperUriToPath = (uri: string): string => {
   if (!uri.startsWith("file://")) {
     throw new Error(`Only local file wallpapers are supported for v1: ${uri}`);
   }
   return fileURLToPath(uri);
-}
+};
 
-export async function getPrimaryMonitorGeometry(): Promise<MonitorGeometry> {
+export const getPrimaryMonitorGeometry = async (): Promise<MonitorGeometry> => {
   const output = await readCommand("gdbus", [
     "call",
     "--session",
@@ -56,9 +56,9 @@ export async function getPrimaryMonitorGeometry(): Promise<MonitorGeometry> {
   ]);
 
   return parseMutterDisplayState(output);
-}
+};
 
-export function parseMutterDisplayState(output: string): MonitorGeometry {
+export const parseMutterDisplayState = (output: string): MonitorGeometry => {
   const currentMode = output.match(
     /'(\d+)x(\d+)@[0-9.]+',\s*(\d+),\s*(\d+),[^{}]*\{[^}]*'is-current':\s*<true>/s,
   );
@@ -85,21 +85,21 @@ export function parseMutterDisplayState(output: string): MonitorGeometry {
   }
 
   return { id, name, width, height, scale, primary };
-}
+};
 
-async function gsettingsGet(schema: string, key: string): Promise<string> {
+const gsettingsGet = async (schema: string, key: string): Promise<string> => {
   const output = await readCommand("gsettings", ["get", schema, key]);
   return parseGSettingsString(output);
-}
+};
 
-async function gsettingsSet(schema: string, key: string, value: string): Promise<void> {
+const gsettingsSet = async (schema: string, key: string, value: string): Promise<void> => {
   await runCommand("gsettings", ["set", schema, key, value]);
-}
+};
 
-function parseGSettingsString(output: string): string {
+const parseGSettingsString = (output: string): string => {
   const trimmed = output.trim();
   if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
     return trimmed.slice(1, -1).replaceAll("\\'", "'");
   }
   return trimmed;
-}
+};
