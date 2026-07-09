@@ -6,7 +6,46 @@ export type PngDataUrl = string & {
   readonly [pngDataUrlBrand]: "PngDataUrl";
 };
 
-export type WallpaperBackend = "gnome";
+export const backendSelectionKinds = ["auto", "gnome"] as const;
+
+export type BackendSelectionKind = (typeof backendSelectionKinds)[number];
+
+export type BackendSelection = { readonly kind: BackendSelectionKind };
+
+export const browserSelectionKinds = [
+  "auto",
+  "firefox-kiosk",
+  "chromium-app",
+  "xdg-open",
+  "custom",
+] as const;
+
+export type BrowserSelectionKind = (typeof browserSelectionKinds)[number];
+
+export type BrowserSelection =
+  | { readonly kind: "auto" }
+  | { readonly kind: "firefox-kiosk" }
+  | { readonly kind: "chromium-app" }
+  | { readonly kind: "xdg-open" }
+  | {
+      readonly kind: "custom";
+      readonly command: string;
+      readonly args: readonly string[];
+    };
+
+export type DeskDoodleConfig = {
+  readonly version: 1;
+  readonly backend: BackendSelection;
+  readonly browser: BrowserSelection;
+};
+
+export type ResolvedWallpaperBackend = { readonly kind: "gnome" };
+
+export type RestoreTarget = {
+  readonly kind: "gnome";
+  readonly pictureUri: string;
+  readonly pictureUriDark: string;
+};
 
 export type MonitorGeometry = {
   readonly id: string;
@@ -28,10 +67,9 @@ export type DeskDoodlePaths = {
 };
 
 export type DeskDoodleState = {
-  readonly version: 1;
-  readonly backend: WallpaperBackend;
-  readonly originalPictureUri: string;
-  readonly originalPictureUriDark: string;
+  readonly version: 2;
+  readonly backend: ResolvedWallpaperBackend;
+  readonly restoreTarget: RestoreTarget;
   readonly baseSourceUri: string;
   readonly pictureOptions: string;
   readonly monitor: MonitorGeometry;

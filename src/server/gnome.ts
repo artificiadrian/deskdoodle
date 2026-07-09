@@ -1,6 +1,6 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { MonitorGeometry } from "../shared/types.js";
-import { readCommand, runCommand } from "./commands.js";
+import type { MonitorGeometry } from "../shared/types";
+import { readCommand, runCommand } from "./commands";
 
 export type GnomeWallpaperSettings = {
   readonly pictureUri: string;

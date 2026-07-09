@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { DeskDoodlePaths } from "../shared/types.js";
+import type { DeskDoodlePaths } from "../shared/types";
 
 export const getPaths = (): DeskDoodlePaths => {
   const dataDir = join(homedir(), ".local", "share", "deskdoodle");

@@ -11,7 +11,7 @@
     "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
     "typecheck:web": "tsc -p tsconfig.web.json",
     "build": "pnpm build:node && pnpm build:web",
-    "build:node": "tsc -p tsconfig.node.json && chmod +x dist/cli/deskdoodle.js",
+    "build:node": "esbuild src/cli/deskdoodle.ts --bundle --packages=external --platform=node --format=esm --target=node22 --outfile=dist/cli/deskdoodle.js && chmod +x dist/cli/deskdoodle.js",
     "build:web": "vite build",
     "link:global": "pnpm build && pnpm link --global",
     "deskdoodle": "pnpm build && node dist/cli/deskdoodle.js",
@@ -30,6 +30,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "esbuild": "0.28.1",
     "typescript": "^5.8.0"
   }
 }

@@ -1,8 +1,8 @@
 import { writeFile } from "node:fs/promises";
-import { pngDataUrlPrefix } from "../shared/data-url.js";
-import type { MonitorGeometry, PngDataUrl } from "../shared/types.js";
-import { runCommand } from "./commands.js";
-import { ensureParentDir } from "./files.js";
+import { pngDataUrlPrefix } from "../shared/data-url";
+import type { MonitorGeometry, PngDataUrl } from "../shared/types";
+import { runCommand } from "./commands";
+import { ensureParentDir } from "./files";
 
 export const renderBaseWallpaper = async (
   sourcePath: string,

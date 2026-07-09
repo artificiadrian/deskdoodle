@@ -1,4 +1,4 @@
-import type { PngDataUrl } from "./types.js";
+import type { PngDataUrl } from "./types";
 
 export const pngDataUrlPrefix = "data:image/png;base64,";
 

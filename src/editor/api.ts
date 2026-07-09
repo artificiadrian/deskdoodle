@@ -2,8 +2,8 @@ import type {
   ApplyWorkspaceRequest,
   ApplyWorkspaceResponse,
   EditorWorkspace,
-} from "../shared/types.js";
-import { apiRoutes } from "../shared/api.js";
+} from "../shared/types";
+import { apiRoutes } from "../shared/api";
 
 export const readToken = (): string => {
   const token = new URLSearchParams(window.location.search).get("token");

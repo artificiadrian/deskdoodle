@@ -1,20 +1,20 @@
 # DeskDoodle
 
-Persistent wallpaper doodles for GNOME.
+Persistent wallpaper doodles.
 
 DeskDoodle opens an Excalidraw editor over your current wallpaper. When you save,
 it exports your doodle layer, composites it over the wallpaper, and applies the
-result as the new GNOME background.
+result as the new desktop background.
 
 ## Requirements
 
-- Linux with GNOME
+- Linux with a supported wallpaper provider
 - local file-based wallpaper, `file://...`
 - Node.js 22 or newer
 - pnpm
-- GNOME command-line tools: `gsettings` and `gdbus`
-- ImageMagick 7, with the `magick` command
-- `firefox` or `xdg-open` to launch the editor
+- ImageMagick 7 with the `magick` command
+- for the GNOME provider: `gsettings` and `gdbus`
+- a supported browser launcher: Firefox, Chromium/Chrome, or `xdg-open`
 
 ```sh
 pnpm install
@@ -34,15 +34,38 @@ pnpm run link:global
 
 ```sh
 deskdoodle          # open editor
-deskdoodle clear    # remove doodles and apply clean base
-deskdoodle reset    # restore original GNOME wallpaper
+deskdoodle clear    # remove saved doodles
+deskdoodle reset    # restore original wallpaper
+deskdoodle check    # check providers and required tools
+deskdoodle config show
+deskdoodle config set backend auto
+deskdoodle config set browser firefox-kiosk
+```
+
+Provider config lives in `~/.config/deskdoodle/config.json`.
+
+Supported wallpaper backends:
+
+- `auto`
+- `gnome`
+
+Supported browser launchers:
+
+- `auto`
+- `firefox-kiosk`
+- `chromium-app`
+- `xdg-open`
+- `custom`, for example:
+
+```sh
+deskdoodle config set browser custom brave --app={url}
 ```
 
 ## Editor Shortcuts
 
 ```text
-Ctrl+S  save, apply, close
-Esc     discard, close
+Ctrl+S  save and close
+Esc     close without saving
 ```
 
 ## State

@@ -9,12 +9,12 @@ import type {
   DeskDoodleState,
   EditorWorkspace,
   ErrorResponse,
-} from "../shared/types.js";
-import { apiRoutes } from "../shared/api.js";
-import { parsePngDataUrl } from "../shared/data-url.js";
-import { applyGnomeWallpaper } from "./gnome.js";
-import { readLayerScene, writeLayerScene } from "./state.js";
-import { compositeWallpaper, writeLayerPngFromDataUrl } from "./render.js";
+} from "../shared/types";
+import { apiRoutes } from "../shared/api";
+import { parsePngDataUrl } from "../shared/data-url";
+import { readLayerScene, writeLayerScene } from "./state";
+import { compositeWallpaper, writeLayerPngFromDataUrl } from "./render";
+import type { WallpaperProvider } from "./providers/wallpaper/index";
 
 export type EditorServer = {
   readonly url: string;
@@ -35,6 +35,7 @@ export type FinishedEditorSessionResult = Exclude<EditorSessionResult, { readonl
 
 export const startEditorServer = async (
   state: DeskDoodleState,
+  wallpaper: WallpaperProvider,
   onExit: () => void,
 ): Promise<EditorServer> => {
   const token = randomBytes(24).toString("base64url");
@@ -78,7 +79,7 @@ export const startEditorServer = async (
           state.paths.layerPngPath,
           state.paths.renderedPath,
         );
-        await applyGnomeWallpaper(state.paths.renderedPath);
+        await wallpaper.apply(state.paths.renderedPath);
         const payload: ApplyWorkspaceResponse = { ok: true, renderedPath: state.paths.renderedPath };
         sendJson(response, 200, payload);
         closeAs({ kind: "saved", renderedPath: state.paths.renderedPath });

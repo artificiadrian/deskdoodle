@@ -11,15 +11,15 @@ import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
 } from "@excalidraw/excalidraw/types";
-import type { EditorWorkspace, ExcalidrawSceneFile, PngDataUrl } from "../shared/types.js";
-import { parsePngDataUrl } from "../shared/data-url.js";
+import type { EditorWorkspace, ExcalidrawSceneFile, PngDataUrl } from "../shared/types";
+import { parsePngDataUrl } from "../shared/data-url";
 import {
   applyWorkspace,
   closeSession,
   fetchEditorWorkspace,
   readToken,
   sessionCloseUrl,
-} from "./api.js";
+} from "./api";
 import "@excalidraw/excalidraw/index.css";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
