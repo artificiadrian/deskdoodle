@@ -1,157 +1,169 @@
 import { mkdir } from "node:fs/promises";
-import type { DeskDoodleState, ExcalidrawSceneFile } from "../shared/types";
-import { readJson, removeIfExists, writeJson } from "./files";
-import { getPaths } from "./paths";
-import { renderBaseWallpaper } from "./render";
+import { z } from "zod";
+import type { Monitor, SceneJson } from "../shared/protocol";
+import { pathExists, readJson, removeIfExists, writeJson } from "./files";
+import { getPaths, isInsideDir, type Paths } from "./paths";
 import {
-  resolveWallpaperProviderForState,
+  providerForKind,
+  wallpaperKinds,
+  type WallpaperKind,
   type WallpaperProvider,
 } from "./providers/wallpaper/index";
+import { renderBaseWallpaper } from "./render";
+
+const monitorSchema = z.object({
+  name: z.string(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+
+const stateSchema = z.object({
+  version: z.literal(3),
+  backend: z.enum(wallpaperKinds),
+  restore: z.unknown(),
+  monitor: monitorSchema,
+  baseSource: z.string(),
+});
+
+const sceneSchema = z.record(z.string(), z.unknown());
+
+/** Everything that cannot be recreated from the desktop once we have overwritten the wallpaper. */
+export type State = {
+  readonly version: 3;
+  readonly backend: WallpaperKind;
+  /** Opaque restore blob, owned and parsed by `backend`'s provider. */
+  readonly restore: unknown;
+  readonly monitor: Monitor;
+  /** The original wallpaper, so the base image can be rebuilt if the monitor changes. */
+  readonly baseSource: string;
+};
 
 export type PreparedState = {
-  readonly state: DeskDoodleState;
+  readonly state: State;
   readonly wallpaper: WallpaperProvider;
 };
 
-export const prepareState = async (wallpaper: WallpaperProvider): Promise<PreparedState> => {
+/**
+ * Loads the saved session, or creates one by capturing the desktop's current wallpaper.
+ * The saved session pins its provider: only that provider can read its restore blob.
+ */
+export const prepareState = async (selected: WallpaperProvider): Promise<PreparedState> => {
   const paths = getPaths();
-  await mkdir(paths.dataDir, { recursive: true });
   await mkdir(paths.runtimeDir, { recursive: true });
 
-  const existing = parseStoredState(await readJson<unknown>(paths.statePath));
+  const existing = await readState(paths);
   if (existing) {
-    return {
-      state: existing,
-      wallpaper: resolveWallpaperProviderForState(existing),
-    };
+    const wallpaper = providerForKind(existing.backend);
+    return { state: await syncBaseImage(existing, wallpaper, paths), wallpaper };
   }
 
-  const capture = await wallpaper.capture();
+  const capture = await selected.capture();
 
-  await renderBaseWallpaper(capture.baseSourcePath, paths.basePath, capture.monitor);
+  // Without state.json the desktop's current wallpaper is our only source for the base
+  // image and the restore target. If that wallpaper is one we generated, the original is
+  // already unreachable: capturing would bake the doodles into base.png and make `reset`
+  // restore a doodled image.
+  if (isInsideDir(paths.dataDir, capture.sourcePath)) {
+    throw new Error(
+      [
+        `The current wallpaper is a DeskDoodle-generated image: ${capture.sourcePath}`,
+        "DeskDoodle has no record of the original wallpaper, so it cannot start from here.",
+        "Set your original wallpaper again, then run deskdoodle.",
+      ].join("\n"),
+    );
+  }
 
-  const state: DeskDoodleState = {
-    version: 2,
-    backend: capture.backend,
-    restoreTarget: capture.restoreTarget,
-    baseSourceUri: capture.baseSourceUri,
-    pictureOptions: capture.pictureOptions,
+  await renderBaseWallpaper(capture.sourcePath, paths.basePath, capture.monitor);
+
+  const state: State = {
+    version: 3,
+    backend: selected.kind,
+    restore: capture.restore,
     monitor: capture.monitor,
-    paths,
-    updatedAt: new Date().toISOString(),
+    baseSource: capture.sourcePath,
   };
-
   await writeJson(paths.statePath, state);
-  return { state, wallpaper };
+
+  return { state, wallpaper: selected };
 };
 
-export const readLayerScene = async (
-  state: DeskDoodleState,
-): Promise<ExcalidrawSceneFile | null> => {
-  return readJson<ExcalidrawSceneFile>(state.paths.layerPath);
+/**
+ * Rebuilds `base.png` when the monitor resolution changed since the session was created,
+ * or when the file went missing. Reads geometry only, never the live wallpaper, which by
+ * now is one of ours.
+ */
+const syncBaseImage = async (
+  state: State,
+  wallpaper: WallpaperProvider,
+  paths: Paths,
+): Promise<State> => {
+  const monitor = await wallpaper.readMonitor();
+  const sameSize =
+    monitor.width === state.monitor.width && monitor.height === state.monitor.height;
+
+  if (sameSize && (await pathExists(paths.basePath))) {
+    return state;
+  }
+
+  if (!(await pathExists(state.baseSource))) {
+    throw new Error(
+      [
+        `The original wallpaper is gone: ${state.baseSource}`,
+        "DeskDoodle cannot rebuild its base image without it.",
+        'Run "deskdoodle reset", then set a wallpaper and start again.',
+      ].join("\n"),
+    );
+  }
+
+  await renderBaseWallpaper(state.baseSource, paths.basePath, monitor);
+
+  const next: State = { ...state, monitor };
+  await writeJson(paths.statePath, next);
+  return next;
 };
 
-export const writeLayerScene = async (
-  state: DeskDoodleState,
-  scene: ExcalidrawSceneFile,
-): Promise<void> => {
-  await writeJson(state.paths.layerPath, {
-    ...scene,
-    type: "excalidraw",
-    source: "deskdoodle",
-  });
-};
-
-export const clearLayerFiles = async (state: DeskDoodleState): Promise<void> => {
-  await Promise.all([
-    removeIfExists(state.paths.layerPath),
-    removeIfExists(state.paths.layerPngPath),
-    removeIfExists(state.paths.renderedPath),
-  ]);
-};
-
-const parseStoredState = (value: unknown): DeskDoodleState | null => {
+/** The saved session, or `null` when there is none. Throws when the file is unreadable. */
+export const readState = async (paths: Paths): Promise<State | null> => {
+  const value = await readJson(paths.statePath);
   if (value === null) {
     return null;
   }
-  if (!isRecord(value)) {
-    throw new Error("Invalid DeskDoodle state: expected object.");
+
+  const parsed = stateSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      [
+        `Unreadable DeskDoodle session at ${paths.statePath}`,
+        "Set your original wallpaper, delete that file, then run deskdoodle again.",
+      ].join("\n"),
+    );
   }
 
-  if (value.version === 2) {
-    return parseStateV2(value);
-  }
-
-  throw new Error(`Invalid DeskDoodle state: unsupported version ${String(value.version)}.`);
+  const { version, backend, restore, monitor, baseSource } = parsed.data;
+  return { version, backend, restore, monitor, baseSource };
 };
 
-const parseStateV2 = (value: Record<string, unknown>): DeskDoodleState => {
-  if (!isRecord(value.backend) || value.backend.kind !== "gnome") {
-    throw new Error("Invalid DeskDoodle state: unsupported backend.");
-  }
-  if (!isRecord(value.restoreTarget) || value.restoreTarget.kind !== "gnome") {
-    throw new Error("Invalid DeskDoodle state: unsupported restore target.");
-  }
-  if (!isMonitor(value.monitor)) {
-    throw new Error("Invalid DeskDoodle state: invalid monitor.");
-  }
-  if (!isPaths(value.paths)) {
-    throw new Error("Invalid DeskDoodle state: invalid paths.");
+export const readLayerScene = async (paths: Paths): Promise<SceneJson | null> => {
+  const value = await readJson(paths.layerPath);
+  if (value === null) {
+    return null;
   }
 
-  return {
-    version: 2,
-    backend: { kind: "gnome" },
-    restoreTarget: {
-      kind: "gnome",
-      pictureUri: stringField(value.restoreTarget, "pictureUri"),
-      pictureUriDark: stringField(value.restoreTarget, "pictureUriDark"),
-    },
-    baseSourceUri: stringField(value, "baseSourceUri"),
-    pictureOptions: stringField(value, "pictureOptions"),
-    monitor: value.monitor,
-    paths: value.paths,
-    updatedAt: stringField(value, "updatedAt"),
-  };
+  const parsed = sceneSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(`Unreadable doodle scene at ${paths.layerPath}.`);
+  }
+  return parsed.data;
 };
 
-const stringField = (value: Record<string, unknown>, field: string): string => {
-  const fieldValue = value[field];
-  if (typeof fieldValue !== "string") {
-    throw new Error(`Invalid DeskDoodle state: expected string field ${field}.`);
-  }
-  return fieldValue;
+export const writeLayerScene = async (paths: Paths, scene: SceneJson): Promise<void> => {
+  await writeJson(paths.layerPath, scene);
 };
 
-const isMonitor = (value: unknown): value is DeskDoodleState["monitor"] => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.id === "string" &&
-    typeof value.name === "string" &&
-    typeof value.width === "number" &&
-    typeof value.height === "number" &&
-    typeof value.scale === "number" &&
-    typeof value.primary === "boolean"
-  );
-};
-
-const isPaths = (value: unknown): value is DeskDoodleState["paths"] => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.dataDir === "string" &&
-    typeof value.basePath === "string" &&
-    typeof value.layerPath === "string" &&
-    typeof value.layerPngPath === "string" &&
-    typeof value.renderedPath === "string" &&
-    typeof value.statePath === "string" &&
-    typeof value.runtimeDir === "string"
-  );
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+export const clearLayerFiles = async (paths: Paths): Promise<void> => {
+  await Promise.all([
+    removeIfExists(paths.layerPath),
+    removeIfExists(paths.layerPngPath),
+    removeIfExists(paths.renderedPath),
+  ]);
 };

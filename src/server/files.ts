@@ -1,14 +1,23 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export const ensureParentDir = async (path: string): Promise<void> => {
   await mkdir(dirname(path), { recursive: true });
 };
 
-export const readJson = async <T>(path: string): Promise<T | null> => {
+export const pathExists = async (path: string): Promise<boolean> => {
   try {
-    const raw = await readFile(path, "utf8");
-    return JSON.parse(raw) as T;
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Reads JSON as `unknown`; `null` when the file does not exist. Callers parse. */
+export const readJson = async (path: string): Promise<unknown> => {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as unknown;
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT") {
       return null;
@@ -32,6 +41,6 @@ export const removeIfExists = async (path: string): Promise<void> => {
   }
 };
 
-export const isNodeError = (error: unknown): error is NodeJS.ErrnoException => {
+const isNodeError = (error: unknown): error is NodeJS.ErrnoException => {
   return error instanceof Error && "code" in error;
 };

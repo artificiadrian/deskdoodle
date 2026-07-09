@@ -1,149 +1,43 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type {
-  BackendSelection,
-  BrowserSelection,
-  DeskDoodleConfig,
-} from "../shared/types";
-import { backendSelectionKinds, browserSelectionKinds } from "../shared/types";
+import { z } from "zod";
 import { readJson, writeJson } from "./files";
+import { browserSelectionSchema } from "./providers/browser/index";
+import { backendSelectionSchema } from "./providers/wallpaper/index";
 
-const configPath = join(homedir(), ".config", "deskdoodle", "config.json");
+/** Resolved on each call, like `getPaths`, so `$HOME` is never captured at import time. */
+export const getConfigPath = (): string => join(homedir(), ".config", "deskdoodle", "config.json");
 
-export const defaultConfig: DeskDoodleConfig = {
-  version: 1,
-  backend: { kind: "auto" },
-  browser: { kind: "auto" },
-};
+const configSchema = z.object({
+  version: z.literal(1).default(1),
+  backend: backendSelectionSchema.default("auto"),
+  browser: browserSelectionSchema.default({ kind: "auto" }),
+});
 
-export const readConfig = async (): Promise<DeskDoodleConfig> => {
-  const value = await readJson<unknown>(configPath);
+export type Config = z.infer<typeof configSchema>;
+
+export const defaultConfig: Config = configSchema.parse({});
+
+export const readConfig = async (): Promise<Config> => {
+  const path = getConfigPath();
+  const value = await readJson(path);
   if (value === null) {
     return defaultConfig;
   }
-  return parseConfig(value);
+
+  const parsed = configSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(`Invalid DeskDoodle config at ${path}:\n${formatIssues(parsed.error)}`);
+  }
+  return parsed.data;
 };
 
-export const writeConfig = async (config: DeskDoodleConfig): Promise<void> => {
-  await writeJson(configPath, config);
+export const writeConfig = async (config: Config): Promise<void> => {
+  await writeJson(getConfigPath(), config);
 };
 
-export const getConfigPath = (): string => {
-  return configPath;
-};
-
-export const setConfigBackend = (
-  config: DeskDoodleConfig,
-  backend: BackendSelection,
-): DeskDoodleConfig => {
-  return { ...config, backend };
-};
-
-export const setConfigBrowser = (
-  config: DeskDoodleConfig,
-  browser: BrowserSelection,
-): DeskDoodleConfig => {
-  return { ...config, browser };
-};
-
-export const parseBackendSelectionName = (value: string): BackendSelection => {
-  if (isOneOf(value, backendSelectionKinds)) {
-    return { kind: value };
-  }
-  throw new Error(`Expected backend to be one of: ${backendSelectionKinds.join(", ")}.`);
-};
-
-export const parseBrowserSelectionName = (
-  value: string,
-  command: string | undefined,
-  args: readonly string[],
-): BrowserSelection => {
-  if (!isOneOf(value, browserSelectionKinds)) {
-    throw new Error(`Expected browser to be one of: ${browserSelectionKinds.join(", ")}.`);
-  }
-  if (value === "custom") {
-    if (!command) {
-      throw new Error("Custom browser requires a command.");
-    }
-    return { kind: "custom", command, args };
-  }
-  return { kind: value };
-};
-
-const parseConfig = (value: unknown): DeskDoodleConfig => {
-  if (!isRecord(value)) {
-    throw new Error(`Invalid DeskDoodle config at ${configPath}: expected object.`);
-  }
-
-  const version = value.version ?? defaultConfig.version;
-  if (version !== 1) {
-    throw new Error(`Invalid DeskDoodle config at ${configPath}: unsupported version ${String(version)}.`);
-  }
-
-  return {
-    version: 1,
-    backend: parseBackendSelection(value.backend),
-    browser: parseBrowserSelection(value.browser),
-  };
-};
-
-const parseBackendSelection = (value: unknown): BackendSelection => {
-  if (value === undefined) {
-    return defaultConfig.backend;
-  }
-  if (!isRecord(value)) {
-    throw new Error("Invalid backend config: expected object.");
-  }
-
-  switch (value.kind) {
-    case "auto":
-    case "gnome":
-      return parseBackendSelectionName(value.kind);
-    default:
-      throw new Error(`Invalid backend config: unsupported backend ${String(value.kind)}.`);
-  }
-};
-
-const parseBrowserSelection = (value: unknown): BrowserSelection => {
-  if (value === undefined) {
-    return defaultConfig.browser;
-  }
-  if (!isRecord(value)) {
-    throw new Error("Invalid browser config: expected object.");
-  }
-
-  switch (value.kind) {
-    case "auto":
-    case "firefox-kiosk":
-    case "chromium-app":
-    case "xdg-open":
-      return parseBrowserSelectionName(value.kind, undefined, []);
-    case "custom":
-      return parseCustomBrowser(value);
-    default:
-      throw new Error(`Invalid browser config: unsupported browser ${String(value.kind)}.`);
-  }
-};
-
-const parseCustomBrowser = (value: Record<string, unknown>): BrowserSelection => {
-  if (typeof value.command !== "string" || value.command.length === 0) {
-    throw new Error("Invalid browser config: custom browser requires command.");
-  }
-  if (!Array.isArray(value.args) || !value.args.every((arg) => typeof arg === "string")) {
-    throw new Error("Invalid browser config: custom browser args must be strings.");
-  }
-
-  return {
-    kind: "custom",
-    command: value.command,
-    args: value.args,
-  };
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-};
-
-const isOneOf = <T extends readonly string[]>(value: string, options: T): value is T[number] => {
-  return options.some((option) => option === value);
+const formatIssues = (error: z.ZodError): string => {
+  return error.issues
+    .map((issue) => `  ${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .join("\n");
 };

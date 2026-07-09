@@ -70,10 +70,23 @@ Esc     close without saving
 
 ## State
 
-State lives in `~/.local/share/deskdoodle`.
+State lives in `~/.local/share/deskdoodle`:
+
+- `state.json` — the original wallpaper and how to restore it
+- `base.png` — the original wallpaper, scaled to the monitor
+- `layer.excalidraw` / `layer.png` — the doodle layer, editable and rendered
+- `rendered.png` — the wallpaper actually applied
 
 DeskDoodle keeps the editable Excalidraw scene separate from the rendered
 wallpaper image, so later runs can move, delete, or edit previous doodles.
+
+`state.json` holds the only thing that cannot be recovered from the desktop: which
+wallpaper was yours before DeskDoodle overwrote it. Everything else is rebuilt as
+needed — change your resolution and the base image is re-rendered on the next run.
+
+If `state.json` is deleted while a doodled wallpaper is applied, DeskDoodle refuses
+to start rather than treat its own output as your original wallpaper. Set your real
+wallpaper again first. `deskdoodle reset` works even when every other file is gone.
 
 ## Current Limits
 

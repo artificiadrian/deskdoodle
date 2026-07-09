@@ -1,4 +1,5 @@
 import pc from "picocolors";
+import type { CommandNeeds } from "../server/result";
 
 export const prefix = `${pc.bold(pc.yellow("desk"))}${pc.bold(pc.white("doodle"))}${pc.yellow(":")}`;
 
@@ -12,17 +13,10 @@ export const helpStyle = {
   styleDescriptionText: (value: string): string => value,
 } as const;
 
-const section = (value: string): string => {
-  return `  ${pc.bold(pc.white(`${value}:`))}`;
-};
+const section = (value: string): string => `  ${pc.bold(pc.white(`${value}:`))}`;
 
-const optionRow = (option: string, description: string): string => {
-  return `    ${pc.white(option.padEnd(24))} ${description}`;
-};
-
-const textRow = (text: string): string => {
-  return `    ${text}`;
-};
+const optionRow = (option: string, description: string): string =>
+  `    ${pc.white(option.padEnd(24))} ${description}`;
 
 export const rootHelpText = [
   "",
@@ -34,8 +28,14 @@ export const rootHelpText = [
   optionRow("deskdoodle check", "check providers and required tools"),
   "",
   section("Requirements"),
-  textRow("ImageMagick and one supported wallpaper provider"),
+  `    ImageMagick and one supported wallpaper provider`,
 ].join("\n");
+
+/** Phrases a provider's unmet requirements: "needs gsettings, gdbus" / "needs one of a, b". */
+export const describeNeeds = (needs: CommandNeeds): string => {
+  const commands = needs.commands.join(", ");
+  return needs.kind === "any" ? `needs one of ${commands}` : `needs ${commands}`;
+};
 
 export const logInfo = (message: string): void => {
   console.log(`${prefix} ${message}`);
@@ -58,11 +58,8 @@ export const writeCommanderError = (message: string, write: (value: string) => v
 };
 
 export const handleError = (error: unknown): never => {
-  const message = error instanceof Error ? error.message : String(error);
-  logError(message);
+  logError(error instanceof Error ? error.message : String(error));
   process.exit(1);
 };
 
-export const link = (url: string): string => {
-  return pc.underline(url);
-};
+export const link = (url: string): string => pc.underline(url);

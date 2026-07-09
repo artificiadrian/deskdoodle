@@ -1,17 +1,36 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { commandExists } from "../../commands";
+import { requireAnyCommand } from "../../exec";
 import type { BrowserProvider } from "./types";
 
-const commands = ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"] as const;
+const chromiumCommands = [
+  "chromium",
+  "chromium-browser",
+  "google-chrome",
+  "google-chrome-stable",
+] as const;
 
+/** Probes the candidate names once, then reports availability from that result. */
 export const chromiumBrowserProvider = async (): Promise<BrowserProvider> => {
-  const command = await resolveChromiumCommand();
+  const found = await requireAnyCommand(chromiumCommands);
+
+  if (!found.success) {
+    return {
+      kind: "chromium-app",
+      command: chromiumCommands.join(", "),
+      available: async () => found,
+      launch: async () => {
+        throw new Error("No Chromium-based browser is installed.");
+      },
+    };
+  }
+
+  const { command } = found;
   return {
     kind: "chromium-app",
     command,
-    available: async () => commandExists(command),
+    available: async () => ({ success: true }),
     launch: async (paths, url) => {
       await mkdir(paths.runtimeDir, { recursive: true });
       const process = spawn(
@@ -26,13 +45,4 @@ export const chromiumBrowserProvider = async (): Promise<BrowserProvider> => {
       return { kind: "managed", process };
     },
   };
-};
-
-const resolveChromiumCommand = async (): Promise<string> => {
-  for (const command of commands) {
-    if (await commandExists(command)) {
-      return command;
-    }
-  }
-  return commands[0];
 };

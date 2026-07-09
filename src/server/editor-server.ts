@@ -1,115 +1,110 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import type {
-  ApplyWorkspaceRequest,
-  ApplyWorkspaceResponse,
-  DeskDoodleState,
-  EditorWorkspace,
-  ErrorResponse,
-} from "../shared/types";
-import { apiRoutes } from "../shared/api";
-import { parsePngDataUrl } from "../shared/data-url";
-import { readLayerScene, writeLayerScene } from "./state";
-import { compositeWallpaper, writeLayerPngFromDataUrl } from "./render";
+import { z } from "zod";
+import { apiRoutes, type EditorWorkspace, type ErrorResponse } from "../shared/protocol";
+import type { Paths } from "./paths";
 import type { WallpaperProvider } from "./providers/wallpaper/index";
+import { compositeWallpaper, writeLayerPng } from "./render";
+import { readLayerScene, writeLayerScene, type State } from "./state";
 
-export type EditorServer = {
-  readonly url: string;
-  readonly token: string;
-  readonly result: () => EditorSessionResult;
-  readonly closeAs: (result: FinishedEditorSessionResult) => void;
-  readonly close: () => Promise<void>;
-};
-
-export type EditorSessionResult =
-  | { readonly kind: "open" }
-  | { readonly kind: "saved"; readonly renderedPath: string }
+/** How an editor session ended. Only `saved` changes the wallpaper. */
+export type SessionOutcome =
+  | { readonly kind: "saved" }
   | { readonly kind: "canceled" }
   | { readonly kind: "closed" }
   | { readonly kind: "failed"; readonly message: string };
 
-export type FinishedEditorSessionResult = Exclude<EditorSessionResult, { readonly kind: "open" }>;
+export type EditorServer = {
+  readonly url: string;
+  /** Resolves the first time the editor saves, cancels, or errors. */
+  readonly finished: Promise<SessionOutcome>;
+  readonly close: () => Promise<void>;
+};
 
-export const startEditorServer = async (
-  state: DeskDoodleState,
-  wallpaper: WallpaperProvider,
-  onExit: () => void,
-): Promise<EditorServer> => {
+export type EditorServerDeps = {
+  readonly state: State;
+  readonly wallpaper: WallpaperProvider;
+  readonly paths: Paths;
+};
+
+const maxBodyBytes = 64 * 1024 * 1024;
+
+const applyRequestSchema = z.object({
+  scene: z.record(z.string(), z.unknown()),
+  layerPngBase64: z.string(),
+});
+
+export const startEditorServer = async (deps: EditorServerDeps): Promise<EditorServer> => {
+  const { state, wallpaper, paths } = deps;
   const token = randomBytes(24).toString("base64url");
-  let result: EditorSessionResult = { kind: "open" };
-  const staticDir = resolve(
-    fileURLToPath(new URL("../editor", import.meta.url)),
-  );
+  const staticDir = resolve(fileURLToPath(new URL("../editor", import.meta.url)));
 
-  const closeAs = (nextResult: FinishedEditorSessionResult): void => {
-    if (result.kind !== "open") {
-      return;
-    }
-    result = nextResult;
-    onExit();
+  let settle: ((outcome: SessionOutcome) => void) | null = null;
+  const finished = new Promise<SessionOutcome>((resolveFinished) => {
+    settle = resolveFinished;
+  });
+
+  /** First outcome wins; later ones are noise from a shutting-down browser. */
+  const finish = (outcome: SessionOutcome): void => {
+    settle?.(outcome);
+    settle = null;
   };
 
-  const server = createServer(async (request, response) => {
+  const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    try {
-      if (url.searchParams.get("token") !== token && url.pathname.startsWith("/api/")) {
-        sendJson(response, 403, { ok: false, error: "Invalid token." } satisfies ErrorResponse);
-        return;
-      }
 
-      if (url.pathname === apiRoutes.workspace && request.method === "GET") {
-        const payload: EditorWorkspace = {
-          baseImageUrl: withToken(apiRoutes.baseImage, token),
-          monitor: state.monitor,
-          scene: await readLayerScene(state),
-        };
-        sendJson(response, 200, payload);
-        return;
-      }
+    // Covers every /api/ route, the base image included.
+    if (url.pathname.startsWith("/api/") && url.searchParams.get("token") !== token) {
+      sendJson(response, 403, { ok: false, error: "Invalid token." } satisfies ErrorResponse);
+      return;
+    }
 
-      if (url.pathname === apiRoutes.applyWorkspace && request.method === "POST") {
-        const body = parseApplyWorkspaceRequest(await readRequestJson(request));
-        await writeLayerScene(state, body.scene);
-        await writeLayerPngFromDataUrl(body.layerPngDataUrl, state.paths.layerPngPath);
-        await compositeWallpaper(
-          state.paths.basePath,
-          state.paths.layerPngPath,
-          state.paths.renderedPath,
-        );
-        await wallpaper.apply(state.paths.renderedPath);
-        const payload: ApplyWorkspaceResponse = { ok: true, renderedPath: state.paths.renderedPath };
-        sendJson(response, 200, payload);
-        closeAs({ kind: "saved", renderedPath: state.paths.renderedPath });
-        return;
-      }
+    if (url.pathname === apiRoutes.workspace && request.method === "GET") {
+      const payload: EditorWorkspace = {
+        baseImageUrl: withToken(apiRoutes.baseImage, token),
+        monitor: state.monitor,
+        scene: await readLayerScene(paths),
+      };
+      sendJson(response, 200, payload);
+      return;
+    }
 
-      if (url.pathname === apiRoutes.session && request.method === "DELETE") {
-        sendJson(response, 200, { ok: true });
-        closeAs({ kind: "canceled" });
-        return;
-      }
+    if (url.pathname === apiRoutes.applyWorkspace && request.method === "POST") {
+      const body = applyRequestSchema.parse(await readRequestJson(request));
+      await writeLayerScene(paths, body.scene);
+      await writeLayerPng(body.layerPngBase64, paths.layerPngPath);
+      await compositeWallpaper(paths.basePath, paths.layerPngPath, paths.renderedPath);
+      await wallpaper.apply(paths.renderedPath);
+      sendNoContent(response);
+      finish({ kind: "saved" });
+      return;
+    }
 
-      if (url.pathname === apiRoutes.baseImage) {
-        if (url.searchParams.get("token") !== token) {
-          sendJson(response, 403, { ok: false, error: "Invalid token." } satisfies ErrorResponse);
-          return;
-        }
-        await sendFile(response, state.paths.basePath, "image/png");
-        return;
-      }
+    if (url.pathname === apiRoutes.session && request.method === "DELETE") {
+      sendNoContent(response);
+      finish({ kind: "canceled" });
+      return;
+    }
 
-      const staticPath = url.pathname === "/" ? "/index.html" : url.pathname;
-      await sendStaticFile(response, staticDir, staticPath);
-    } catch (error) {
+    if (url.pathname === apiRoutes.baseImage) {
+      await sendFile(response, paths.basePath, "image/png");
+      return;
+    }
+
+    await sendStaticFile(response, staticDir, url.pathname === "/" ? "/index.html" : url.pathname);
+  };
+
+  const server = createServer((request, response) => {
+    void handle(request, response).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : "Unknown error";
       sendJson(response, 500, { ok: false, error: message } satisfies ErrorResponse);
-      if (url.pathname.startsWith("/api/")) {
-        closeAs({ kind: "failed", message });
+      if (new URL(request.url ?? "/", "http://127.0.0.1").pathname.startsWith("/api/")) {
+        finish({ kind: "failed", message });
       }
-    }
+    });
   });
 
   await new Promise<void>((resolveListen) => {
@@ -118,28 +113,19 @@ export const startEditorServer = async (
 
   const address = server.address();
   if (!address || typeof address === "string") {
-    throw new Error("Could not start DeskDoodle editor server.");
+    throw new Error("Could not start the DeskDoodle editor server.");
   }
 
   const close = async (): Promise<void> => {
+    // An unmanaged browser (xdg-open) holds its keep-alive socket open, and close()
+    // alone would wait for that socket to time out.
+    server.closeIdleConnections();
     await new Promise<void>((resolveClose, rejectClose) => {
-      server.close((error) => {
-        if (error) {
-          rejectClose(error);
-          return;
-        }
-        resolveClose();
-      });
+      server.close((error) => (error ? rejectClose(error) : resolveClose()));
     });
   };
 
-  return {
-    url: `http://127.0.0.1:${address.port}/?token=${token}`,
-    token,
-    result: () => result,
-    closeAs,
-    close,
-  };
+  return { url: `http://127.0.0.1:${address.port}/?token=${token}`, finished, close };
 };
 
 const withToken = (path: string, token: string): string => {
@@ -152,14 +138,13 @@ const sendStaticFile = async (
   pathname: string,
 ): Promise<void> => {
   const requestedPath = resolve(join(staticDir, pathname));
-  if (!requestedPath.startsWith(staticDir)) {
+  if (requestedPath !== staticDir && !requestedPath.startsWith(staticDir + sep)) {
     sendJson(response, 403, { ok: false, error: "Forbidden." } satisfies ErrorResponse);
     return;
   }
 
-  const contentType = contentTypeForPath(requestedPath);
   try {
-    await sendFile(response, requestedPath, contentType);
+    await sendFile(response, requestedPath, contentTypeForPath(requestedPath));
   } catch {
     await sendFile(response, join(staticDir, "index.html"), "text/html; charset=utf-8");
   }
@@ -171,10 +156,7 @@ const sendFile = async (
   contentType: string,
 ): Promise<void> => {
   const data = await readFile(path);
-  response.writeHead(200, {
-    "Content-Type": contentType,
-    "Cache-Control": "no-store",
-  });
+  response.writeHead(200, { "Content-Type": contentType, "Cache-Control": "no-store" });
   response.end(data);
 };
 
@@ -186,31 +168,25 @@ const sendJson = (response: ServerResponse, status: number, value: unknown): voi
   response.end(JSON.stringify(value));
 };
 
+const sendNoContent = (response: ServerResponse): void => {
+  response.writeHead(204, { "Cache-Control": "no-store" });
+  response.end();
+};
+
 const readRequestJson = async (request: IncomingMessage): Promise<unknown> => {
   const chunks: Buffer[] = [];
+  let size = 0;
+
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string);
+    size += buffer.length;
+    if (size > maxBodyBytes) {
+      throw new Error("Request body is too large.");
+    }
+    chunks.push(buffer);
   }
+
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-};
-
-const parseApplyWorkspaceRequest = (value: unknown): ApplyWorkspaceRequest => {
-  if (!isRecord(value)) {
-    throw new Error("Expected save request object.");
-  }
-
-  if (!isRecord(value.scene)) {
-    throw new Error("Expected Excalidraw scene object.");
-  }
-
-  return {
-    scene: value.scene,
-    layerPngDataUrl: parsePngDataUrl(value.layerPngDataUrl),
-  };
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 };
 
 const contentTypeForPath = (path: string): string => {

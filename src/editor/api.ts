@@ -1,9 +1,4 @@
-import type {
-  ApplyWorkspaceRequest,
-  ApplyWorkspaceResponse,
-  EditorWorkspace,
-} from "../shared/types";
-import { apiRoutes } from "../shared/api";
+import { apiRoutes, type ApplyRequest, type EditorWorkspace } from "../shared/protocol";
 
 export const readToken = (): string => {
   const token = new URLSearchParams(window.location.search).get("token");
@@ -21,10 +16,7 @@ export const fetchEditorWorkspace = async (token: string): Promise<EditorWorkspa
   return response.json() as Promise<EditorWorkspace>;
 };
 
-export const applyWorkspace = async (
-  token: string,
-  request: ApplyWorkspaceRequest,
-): Promise<ApplyWorkspaceResponse> => {
+export const applyWorkspace = async (token: string, request: ApplyRequest): Promise<void> => {
   const response = await fetch(withToken(apiRoutes.applyWorkspace, token), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,15 +25,11 @@ export const applyWorkspace = async (
   if (!response.ok) {
     throw new Error(`Apply failed: ${response.status}`);
   }
-  return response.json() as Promise<ApplyWorkspaceResponse>;
 };
 
-export const closeSession = async (token: string): Promise<void> => {
-  await fetch(withToken(apiRoutes.session, token), { method: "DELETE" });
-};
-
-export const sessionCloseUrl = (token: string): string => {
-  return withToken(apiRoutes.session, token);
+/** `keepalive` lets the request outlive the page being torn down on `pagehide`. */
+export const closeSession = (token: string, keepalive = false): Promise<unknown> => {
+  return fetch(withToken(apiRoutes.session, token), { method: "DELETE", keepalive });
 };
 
 const withToken = (path: string, token: string): string => {

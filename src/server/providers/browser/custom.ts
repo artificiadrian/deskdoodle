@@ -1,23 +1,22 @@
 import { spawn } from "node:child_process";
-import { commandExists } from "../../commands";
+import { requireAllCommands } from "../../exec";
 import type { BrowserProvider } from "./types";
 
 export const customBrowserProvider = (
   command: string,
   args: readonly string[],
-): BrowserProvider => {
-  return {
-    kind: "custom",
-    command,
-    available: async () => commandExists(command),
-    launch: async (_paths, url) => {
-      const process = spawn(command, withUrl(args, url), { stdio: "ignore" });
-      return { kind: "managed", process };
-    },
-  };
-};
+): BrowserProvider => ({
+  kind: "custom",
+  command,
+  available: () => requireAllCommands([command]),
+  launch: async (_paths, url) => {
+    const process = spawn(command, withUrl(args, url), { stdio: "ignore" });
+    return { kind: "managed", process };
+  },
+});
 
-const withUrl = (args: readonly string[], url: string): readonly string[] => {
+/** Substitutes `{url}` wherever it appears, or appends the URL when it does not. */
+const withUrl = (args: readonly string[], url: string): string[] => {
   if (args.some((arg) => arg.includes("{url}"))) {
     return args.map((arg) => arg.replaceAll("{url}", url));
   }
