@@ -11,10 +11,6 @@ https://user-images.githubusercontent.com/PLACEHOLDER/deskdoodle-demo.mp4
 
 <!-- Replace the line above with the uploaded demo video. -->
 
-> **This is an experiment, and mostly a toy.**
-> I built it because drawing on my wallpaper sounded fun, not because anyone needed it.
-> It works well on my machine, it will probably work on yours, and it is nobody's
-> production software. Expect rough edges, and enjoy them.
 
 ## Install
 

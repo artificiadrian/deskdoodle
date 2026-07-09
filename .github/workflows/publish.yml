@@ -1,0 +1,48 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  # Required for npm trusted publishing: the OIDC token stands in for an npm token.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fails before anything is installed, so a mistyped tag costs seconds.
+      # The tag must be exactly v<version>: `0.1.0` without the `v` is rejected.
+      - name: Tag must match package.json version
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json; expected $expected"
+            exit 1
+          fi
+          echo "publishing $GITHUB_REF_NAME"
+
+      - uses: pnpm/action-setup@v4
+
+      # Node 24, not 22: trusted publishing needs npm >= 11.5.1, and the npm bundled
+      # with every Node 22 release is still 10.x.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      # No NODE_AUTH_TOKEN: npm authenticates over OIDC, and generates the provenance
+      # attestation on its own, so `--provenance` is not passed either.
+      # `prepack` builds the CLI and the editor, so npm publishes a fresh dist.
+      - run: npm publish --access public

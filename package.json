@@ -12,6 +12,14 @@
     "cli"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artificiadrian/deskdoodle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/artificiadrian/deskdoodle/issues"
+  },
+  "homepage": "https://github.com/artificiadrian/deskdoodle#readme",
   "type": "module",
   "bin": {
     "deskdoodle": "./dist/cli/deskdoodle.js"
@@ -49,5 +57,6 @@
     "react-dom": "^19.2.7",
     "typescript": "^5.9.3",
     "vite": "^7.3.6"
-  }
+  },
+  "packageManager": "pnpm@11.9.0"
 }
