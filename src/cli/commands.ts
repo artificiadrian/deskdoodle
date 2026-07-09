@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { Argument, Command } from "commander";
 import pc from "picocolors";
+import type { z } from "zod";
 import { getConfigPath, readConfig, writeConfig, type Config } from "../server/config";
 import { runEditorSession, type SessionOutcome } from "../server/editor-session";
 import { requireAllCommands } from "../server/exec";
@@ -24,6 +25,7 @@ import {
 } from "../server/providers/wallpaper/index";
 import { clearLayerFiles, prepareState, readState } from "../server/state";
 import {
+  banner,
   describeNeeds,
   handleError,
   helpStyle,
@@ -32,6 +34,7 @@ import {
   logInfo,
   logSuccess,
   logWarning,
+  printBanner,
   rootHelpText,
   writeCommanderError,
 } from "./ui";
@@ -40,30 +43,34 @@ export const createProgram = (): Command => {
   const program = new Command()
     .name("deskdoodle")
     .usage("[command]")
-    .description("Draw on your wallpaper, then save it as the desktop background.")
-    .helpOption("-h, --help", "show help")
+    .helpOption("-h, --help", "show this")
     .showHelpAfterError()
     .configureHelp(helpStyle)
     .addHelpText("after", rootHelpText)
     .configureOutput({ outputError: writeCommanderError })
     .action(() => run(openEditor));
 
-  program
-    .command("clear")
-    .usage("")
-    .description("remove saved doodles")
-    .action(() => run(clearDoodles));
+  // `beforeAll` reaches every subcommand's help too; the art belongs only on the root.
+  program.addHelpText("beforeAll", (context) =>
+    context.command === program ? `\n${banner}\n` : "",
+  );
 
   program
-    .command("reset")
+    .command("erase")
     .usage("")
-    .description("restore the original wallpaper")
-    .action(() => run(resetWallpaper));
+    .description("delete the doodles, keep the wallpaper")
+    .action(() => run(eraseDoodles));
+
+  program
+    .command("restore")
+    .usage("")
+    .description("put your original wallpaper back, keep the doodles")
+    .action(() => run(restoreWallpaper));
 
   program
     .command("check")
     .usage("")
-    .description("check providers and required tools")
+    .description("check required tools and providers")
     .action(() => run(checkSetup));
 
   const config = program.command("config").description("show or change saved choices");
@@ -105,6 +112,8 @@ const run = (action: () => Promise<void>): void => {
 };
 
 const openEditor = async (): Promise<void> => {
+  printBanner();
+
   const config = await readConfig();
   await requireImageMagick();
 
@@ -112,12 +121,12 @@ const openEditor = async (): Promise<void> => {
   const { state, wallpaper } = await prepareState(await requireWallpaper(config));
 
   // The saved session pins the provider, because only that provider can read its restore
-  // blob. Switching providers goes through `reset`, which never reaches this check.
+  // blob. Switching providers goes through `restore`, which never reaches this check.
   if (config.backend !== "auto" && config.backend !== state.backend) {
     throw new Error(
       [
         `config selects the ${config.backend} wallpaper provider, but the saved session uses ${state.backend}.`,
-        'Run "deskdoodle reset" to restore the original wallpaper before switching providers.',
+        'Run "deskdoodle restore" to put your original wallpaper back before switching providers.',
       ].join("\n"),
     );
   }
@@ -134,7 +143,7 @@ const openEditor = async (): Promise<void> => {
   reportOutcome(outcome, wallpaper);
 };
 
-const clearDoodles = async (): Promise<void> => {
+const eraseDoodles = async (): Promise<void> => {
   const config = await readConfig();
   await requireImageMagick();
 
@@ -143,14 +152,14 @@ const clearDoodles = async (): Promise<void> => {
 
   await clearLayerFiles(paths);
   await wallpaper.apply(paths.basePath);
-  logSuccess("removed doodles");
+  logSuccess("erased the doodles");
 };
 
-/** Never renders or captures: reset has to work even when the base image is gone. */
-const resetWallpaper = async (): Promise<void> => {
+/** Never renders or captures: restore has to work even when the base image is gone. */
+const restoreWallpaper = async (): Promise<void> => {
   const state = await readState(getPaths());
   if (!state) {
-    throw new Error("There is no DeskDoodle session to reset.");
+    throw new Error("There is no DeskDoodle session to restore.");
   }
 
   const wallpaper = providerForKind(state.backend);
@@ -247,7 +256,6 @@ const checkSetup = async (): Promise<void> => {
     rows.push(["monitor", desktop.monitor], ["wallpaper", desktop.wallpaper]);
   }
 
-  logInfo("check");
   console.log(formatRows(rows));
 
   if (imageMagick.success && browser.success && wallpaper.success) {
@@ -300,7 +308,7 @@ const showConfig = async (): Promise<void> => {
 
 const setBackend = async (backend: string): Promise<void> => {
   const config = await readConfig();
-  const next: Config = { ...config, backend: backendSelectionSchema.parse(backend) };
+  const next: Config = { ...config, backend: parseOrThrow(backendSelectionSchema, backend) };
   await writeConfig(next);
   logSuccess(`saved wallpaper provider ${pc.bold(next.backend)}`);
 };
@@ -314,13 +322,23 @@ const setBrowser = async (
     throw new Error("A custom browser launcher requires a command.");
   }
 
-  const selection = browserSelectionSchema.parse(
+  const selection = parseOrThrow(
+    browserSelectionSchema,
     browser === "custom" ? { kind: browser, command, args: [...args] } : { kind: browser },
   );
 
   const config = await readConfig();
   await writeConfig({ ...config, browser: selection });
   logSuccess(`saved browser launcher ${pc.bold(describeBrowser(selection))}`);
+};
+
+/** Turns a schema rejection into a one-line message instead of a raw ZodError dump. */
+const parseOrThrow = <T>(schema: z.ZodType<T>, value: unknown): T => {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues.map((issue) => issue.message).join("; "));
+  }
+  return parsed.data;
 };
 
 const describeBrowser = (browser: BrowserSelection): string => {

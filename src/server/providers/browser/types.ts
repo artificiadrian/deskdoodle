@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { isAbsolute } from "node:path";
 import { z } from "zod";
 import type { Paths } from "../../paths";
 import type { Availability } from "../../result";
@@ -18,7 +19,12 @@ export const browserSelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("xdg-open") }),
   z.object({
     kind: z.literal("custom"),
-    command: z.string().min(1),
+    // The one command DeskDoodle does not choose itself. An absolute path removes any
+    // question of which binary on PATH it resolved to.
+    command: z
+      .string()
+      .min(1)
+      .refine(isAbsolute, "a custom browser command must be an absolute path (try: command -v brave)"),
     args: z.array(z.string()),
   }),
 ]);

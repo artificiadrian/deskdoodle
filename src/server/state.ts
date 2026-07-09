@@ -61,8 +61,8 @@ export const prepareState = async (selected: WallpaperProvider): Promise<Prepare
 
   // Without state.json the desktop's current wallpaper is our only source for the base
   // image and the restore target. If that wallpaper is one we generated, the original is
-  // already unreachable: capturing would bake the doodles into base.png and make `reset`
-  // restore a doodled image.
+  // already unreachable: capturing would bake the doodles into base.png and leave
+  // `restore` pointing at a doodled image.
   if (isInsideDir(paths.dataDir, capture.sourcePath)) {
     throw new Error(
       [
@@ -110,7 +110,7 @@ const syncBaseImage = async (
       [
         `The original wallpaper is gone: ${state.baseSource}`,
         "DeskDoodle cannot rebuild its base image without it.",
-        'Run "deskdoodle reset", then set a wallpaper and start again.',
+        'Run "deskdoodle restore", then set a wallpaper and start again.',
       ].join("\n"),
     );
   }

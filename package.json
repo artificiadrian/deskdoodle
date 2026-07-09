@@ -1,37 +1,51 @@
 {
   "name": "deskdoodle",
   "version": "0.1.0",
-  "private": true,
+  "description": "Draw on your desktop wallpaper with Excalidraw, then make the doodle your background.",
+  "keywords": [
+    "wallpaper",
+    "excalidraw",
+    "gnome",
+    "desktop",
+    "doodle",
+    "linux",
+    "cli"
+  ],
   "type": "module",
   "bin": {
     "deskdoodle": "./dist/cli/deskdoodle.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "linux"
+  ],
   "scripts": {
-    "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
-    "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
-    "typecheck:web": "tsc -p tsconfig.web.json",
-    "build": "pnpm build:node && pnpm build:web",
-    "build:node": "esbuild src/cli/deskdoodle.ts --bundle --packages=external --platform=node --format=esm --target=node22 --outfile=dist/cli/deskdoodle.js && chmod +x dist/cli/deskdoodle.js",
-    "build:web": "vite build",
-    "link:global": "pnpm build && pnpm link --global",
-    "deskdoodle": "pnpm build && node dist/cli/deskdoodle.js",
-    "start": "node dist/cli/deskdoodle.js"
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json",
+    "build": "esbuild src/cli/deskdoodle.ts --bundle --packages=external --platform=node --format=esm --target=node22 --outfile=dist/cli/deskdoodle.js && chmod +x dist/cli/deskdoodle.js && vite build",
+    "start": "node dist/cli/deskdoodle.js",
+    "prepack": "pnpm build"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.0",
-    "commander": "^14.0.0",
+    "commander": "^14.0.3",
     "picocolors": "^1.1.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "esbuild": "0.28.1",
-    "typescript": "^5.8.0",
-    "vite": "^7.0.0"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
   }
 }
