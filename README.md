@@ -90,25 +90,16 @@ binary runs. Use `{url}` to place the editor URL, or leave it off to have it app
 deskdoodle config set browser custom /usr/bin/brave --app={url}
 ```
 
-## State
+## Where things live
 
-Everything lives in `~/.local/share/deskdoodle`:
+Your doodles and everything DeskDoodle renders sit in `~/.local/share/deskdoodle`. Only
+one thing in there cannot be rebuilt: the record of which wallpaper was yours before
+DeskDoodle took over. The rest is regenerated as needed — change your screen resolution
+and the wallpaper is re-rendered on the next run.
 
-| file | what it is |
-| --- | --- |
-| `state.json` | your original wallpaper, and how to restore it |
-| `base.png` | that wallpaper, scaled to your monitor |
-| `layer.excalidraw` | the doodle, still editable |
-| `layer.png` | the doodle, rendered |
-| `rendered.png` | what is actually on your desktop |
-
-`state.json` holds the only thing DeskDoodle cannot rebuild: which wallpaper was yours
-before it took over. Everything else is regenerated as needed — change your screen
-resolution and the base image is re-rendered on the next run.
-
-If you delete `state.json` while a doodled wallpaper is showing, DeskDoodle refuses to
-start rather than mistake its own output for your original wallpaper. Set a real
-wallpaper again first. `deskdoodle restore` keeps working even when every other file is gone.
+Delete that record while a doodled wallpaper is showing, and DeskDoodle refuses to start
+rather than mistake its own output for your original wallpaper. Set a real wallpaper
+again first. `deskdoodle restore` keeps working even when everything else is gone.
 
 ## Limits
 
