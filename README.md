@@ -25,22 +25,24 @@ npm install -g deskdoodle
 Or run it without installing:
 
 ```sh
-npx deskdoodle
+npx deskdoodle draw
 ```
 
 ## Use
 
 ```sh
-deskdoodle          # open the editor on your wallpaper
+deskdoodle draw     # open the canvas on your wallpaper
 deskdoodle erase    # delete the doodles, keep the wallpaper
 deskdoodle restore  # put your original wallpaper back, keep the doodles
 deskdoodle check    # check required tools and providers
 ```
 
+Run `deskdoodle` on its own for help.
+
 `erase` and `restore` are opposites. `erase` throws the doodles away and leaves
 DeskDoodle in charge of your background. `restore` hands your desktop back to the
 wallpaper it had before DeskDoodle touched it, and keeps the doodles on disk — run
-`deskdoodle` again and they are still there, ready to edit.
+`deskdoodle draw` again and they are still there, ready to edit.
 
 Inside the editor:
 
@@ -128,3 +130,7 @@ pnpm start          # runs the built CLI
 
 pnpm build && pnpm link --global    # use `deskdoodle` from this checkout
 ```
+
+## License
+
+MIT

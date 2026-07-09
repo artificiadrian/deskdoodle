@@ -48,12 +48,20 @@ export const createProgram = (): Command => {
     .configureHelp(helpStyle)
     .addHelpText("after", rootHelpText)
     .configureOutput({ outputError: writeCommanderError })
-    .action(() => run(openEditor));
+    // Bare `deskdoodle` shows help rather than capturing the wallpaper and launching a
+    // browser: the only way to learn what the tool does should not be to do it.
+    .action(() => program.outputHelp());
 
   // `beforeAll` reaches every subcommand's help too; the art belongs only on the root.
   program.addHelpText("beforeAll", (context) =>
     context.command === program ? `\n${banner}\n` : "",
   );
+
+  program
+    .command("draw")
+    .usage("")
+    .description("open the canvas on your wallpaper")
+    .action(() => run(draw));
 
   program
     .command("erase")
@@ -111,7 +119,7 @@ const run = (action: () => Promise<void>): void => {
   void action().catch(handleError);
 };
 
-const openEditor = async (): Promise<void> => {
+const draw = async (): Promise<void> => {
   printBanner();
 
   const config = await readConfig();

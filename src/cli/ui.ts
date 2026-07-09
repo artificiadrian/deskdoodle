@@ -109,7 +109,6 @@ export const rootHelpText = [
   optionRow("Ctrl+S", "make it your desktop background"),
   optionRow("Esc", "close without saving"),
   "",
-  pc.dim("Run with no command to start drawing."),
   pc.dim("Needs GNOME, ImageMagick, and a browser to draw in."),
   pc.dim("This is an experiment. Break it freely."),
 ].join("\n");

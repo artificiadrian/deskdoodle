@@ -68,7 +68,7 @@ export const prepareState = async (selected: WallpaperProvider): Promise<Prepare
       [
         `The current wallpaper is a DeskDoodle-generated image: ${capture.sourcePath}`,
         "DeskDoodle has no record of the original wallpaper, so it cannot start from here.",
-        "Set your original wallpaper again, then run deskdoodle.",
+        'Set your original wallpaper again, then run "deskdoodle draw".',
       ].join("\n"),
     );
   }
@@ -134,7 +134,7 @@ export const readState = async (paths: Paths): Promise<State | null> => {
     throw new Error(
       [
         `Unreadable DeskDoodle session at ${paths.statePath}`,
-        "Set your original wallpaper, delete that file, then run deskdoodle again.",
+        'Set your original wallpaper, delete that file, then run "deskdoodle draw" again.',
       ].join("\n"),
     );
   }

@@ -11,13 +11,15 @@
     "linux",
     "cli"
   ],
+  "license": "MIT",
   "type": "module",
   "bin": {
     "deskdoodle": "./dist/cli/deskdoodle.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
