@@ -4,9 +4,9 @@
 
 DeskDoodle opens an [Excalidraw](https://excalidraw.com) canvas on top of your current wallpaper. Sketch whatever you like (a reminder, an arrow pointing at nothing, a cat) hit `Ctrl+S`, and it becomes your desktop background. Your doodles stay editable, so the next run you can move them, redraw them, or wipe them and start over.
 
-_**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
-
 <video src="https://github.com/user-attachments/assets/47786bf6-cfc4-4a9b-b243-14cd7e6c1a69" controls preload></video>
+
+_**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
 
 ## Install
 
