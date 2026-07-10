@@ -1,4 +1,4 @@
-gith# ∿ DeskDoodle
+∿ DeskDoodle
 
 **Draw on your desktop wallpaper. Keep the doodles.**
 
