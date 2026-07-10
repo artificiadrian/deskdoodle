@@ -2,10 +2,7 @@
 
 **Draw on your desktop wallpaper. Keep the doodles.**
 
-DeskDoodle opens an [Excalidraw](https://excalidraw.com) canvas on top of your current
-wallpaper. Sketch whatever you like — a reminder, an arrow pointing at nothing, a cat —
-hit `Ctrl+S`, and it becomes your desktop background. Your doodles stay editable, so the
-next run you can move them, redraw them, or wipe them and start over.
+DeskDoodle opens an [Excalidraw](https://excalidraw.com) canvas on top of your current wallpaper. Sketch whatever you like (a reminder, an arrow pointing at nothing, a cat) hit `Ctrl+S`, and it becomes your desktop background. Your doodles stay editable, so the next run you can move them, redraw them, or wipe them and start over.
 
 _**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
 
@@ -36,10 +33,7 @@ deskdoodle check    # check required tools and providers
 
 Run `deskdoodle` on its own for help.
 
-`erase` and `restore` are opposites. `erase` throws the doodles away and leaves
-DeskDoodle in charge of your background. `restore` hands your desktop back to the
-wallpaper it had before DeskDoodle touched it, and keeps the doodles on disk — run
-`deskdoodle draw` again and they are still there, ready to edit.
+`erase` and `restore` are opposites. `erase` throws the doodles away and leaves DeskDoodle in charge of your background. `restore` hands your desktop back to the wallpaper it had before DeskDoodle touched it, and keeps the doodles on disk — run `deskdoodle draw` again and they are still there, ready to edit.
 
 Inside the editor:
 
@@ -84,8 +78,7 @@ deskdoodle config set browser firefox-kiosk
 
 Browser launchers: `auto`, `firefox-kiosk`, `chromium-app`, `xdg-open`, `custom`.
 
-A `custom` launcher takes an absolute path, so there is never any doubt about which
-binary runs. Use `{url}` to place the editor URL, or leave it off to have it appended:
+A `custom` launcher takes an absolute path, so there is never any doubt about which binary runs. Use `{url}` to place the editor URL, or leave it off to have it appended:
 
 ```sh
 deskdoodle config set browser custom /usr/bin/brave --app={url}
@@ -93,14 +86,10 @@ deskdoodle config set browser custom /usr/bin/brave --app={url}
 
 ## Where things live
 
-Your doodles and everything DeskDoodle renders sit in `~/.local/share/deskdoodle`. Only
-one thing in there cannot be rebuilt: the record of which wallpaper was yours before
-DeskDoodle took over. The rest is regenerated as needed — change your screen resolution
+Your doodles and everything DeskDoodle renders sit in `~/.local/share/deskdoodle`. Only one thing in there cannot be rebuilt: the record of which wallpaper was yours before DeskDoodle took over. The rest is regenerated as needed — change your screen resolution
 and the wallpaper is re-rendered on the next run.
 
-Delete that record while a doodled wallpaper is showing, and DeskDoodle refuses to start
-rather than mistake its own output for your original wallpaper. Set a real wallpaper
-again first. `deskdoodle restore` keeps working even when everything else is gone.
+Delete that record while a doodled wallpaper is showing, and DeskDoodle refuses to start rather than mistake its own output for your original wallpaper. Set a real wallpaper again first. `deskdoodle restore` keeps working even when everything else is gone.
 
 ## Limits
 
