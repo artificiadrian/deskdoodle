@@ -1,4 +1,4 @@
-# ∿ DeskDoodle
+gith# ∿ DeskDoodle
 
 **Draw on your desktop wallpaper. Keep the doodles.**
 
@@ -6,9 +6,7 @@ DeskDoodle opens an [Excalidraw](https://excalidraw.com) canvas on top of your c
 
 _**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
 
-<video src="showcase.mp4"></video>
-
-<!-- Replace the line above with the uploaded demo video. -->
+<video src="https://github.com/user-attachments/assets/47786bf6-cfc4-4a9b-b243-14cd7e6c1a69" controls preload></video>
 
 ## Install
 
