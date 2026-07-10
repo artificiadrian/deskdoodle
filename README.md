@@ -9,10 +9,9 @@ next run you can move them, redraw them, or wipe them and start over.
 
 _**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
 
-https://user-images.githubusercontent.com/PLACEHOLDER/deskdoodle-demo.mp4
+<video src="showcase.mp4"></video>
 
 <!-- Replace the line above with the uploaded demo video. -->
-
 
 ## Install
 
