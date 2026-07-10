@@ -7,6 +7,8 @@ wallpaper. Sketch whatever you like — a reminder, an arrow pointing at nothing
 hit `Ctrl+S`, and it becomes your desktop background. Your doodles stay editable, so the
 next run you can move them, redraw them, or wipe them and start over.
 
+_**DeskDoodle is still very experimental.** It only works with GNOME at the moment._
+
 https://user-images.githubusercontent.com/PLACEHOLDER/deskdoodle-demo.mp4
 
 <!-- Replace the line above with the uploaded demo video. -->
